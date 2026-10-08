@@ -1,0 +1,6 @@
+{
+ "text": "```python\nfrom __future__ import annotations\n\n\ndef rle_encode(text: str) -> str:\n    \"\"\"Run-length encodes a string as count followed by character.\n\n    For example, \"aaab\" -> \"3a1b\".\n    Case-sensitive. Raises ValueError if the text contains any digits.\n    \"\"\"\n    if any(char.isdigit() for char in text):\n        raise ValueError(\"Text cannot contain digits.\")\n\n    if not text:\n        return \"\"\n\n    encoded_chunks: list[str] = []\n    current_char = text[0]\n    count = 1\n\n    for char in text[1:]:\n        if char == current_char:\n            count += 1\n        else:\n            encoded_chunks.append(f\"{count}{current_char}\")\n            current_char = char\n            count = 1\n\n    encoded_chunks.append(f\"{count}{current_char}\")\n    return \"\".join(encoded_chunks)\n```",
+ "prompt_tokens": 188,
+ "completion_tokens": 219,
+ "latency_s": 1.39
+}

@@ -1,0 +1,1430 @@
+# Benchmark tasks for self-repair-coder.
+#
+# Every task has a plain-English prompt, the tests the assistant is shown (`tests`), and extra tests it never
+# sees (`hidden_tests`), which are used only for scoring. `reference` is a known-good solution; the test suite
+# checks that each reference passes every test, and that each `starter_code` (fix tasks) fails at least one.
+# One test per line; `raises(Error, fn, *args)` is True when the call raises Error.
+
+[[task]]
+id = "slugify"
+entry_point = "slugify"
+prompt = """
+Write slugify(text: str) -> str that turns a title into a URL slug. Lowercase everything, turn accented
+letters into their plain ASCII letter (e -> e for an accented e), drop any other non-ASCII characters,
+replace every run of characters that are not a-z or 0-9 with a single hyphen, and strip hyphens from both
+ends. Return an empty string if nothing is left.
+"""
+tests = """
+assert slugify("Hello World") == "hello-world"
+assert slugify("  Already--slugged  ") == "already-slugged"
+assert slugify("Crème Brûlée") == "creme-brulee"
+"""
+hidden_tests = """
+assert slugify("") == ""
+assert slugify("!!!") == ""
+assert slugify("C++ & Python 3.12") == "c-python-3-12"
+assert slugify("Ünïcödé Straße") == "unicode-strae"
+assert slugify("日本 tokyo") == "tokyo"
+assert slugify("a_b") == "a-b"
+"""
+reference = '''
+import re
+import unicodedata
+
+def slugify(text):
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+'''
+
+[[task]]
+id = "roman_to_int"
+entry_point = "roman_to_int"
+prompt = """
+Write roman_to_int(s: str) -> int that converts an upper-case Roman numeral (I, V, X, L, C, D, M, with the
+usual subtractive pairs IV, IX, XL, XC, CD, CM) into an integer from 1 to 3999. Raise ValueError for an empty
+string, any other character, or a numeral that is not in canonical form (for example "IIII", "VX" or "IC").
+"""
+tests = """
+assert roman_to_int("III") == 3
+assert roman_to_int("MCMXCIV") == 1994
+assert raises(ValueError, roman_to_int, "")
+"""
+hidden_tests = """
+assert roman_to_int("MMMCMXCIX") == 3999
+assert roman_to_int("XLII") == 42
+assert raises(ValueError, roman_to_int, "IIII")
+assert raises(ValueError, roman_to_int, "VX")
+assert raises(ValueError, roman_to_int, "IC")
+assert raises(ValueError, roman_to_int, "abc")
+assert raises(ValueError, roman_to_int, "MMMM")
+"""
+reference = '''
+def roman_to_int(s):
+    values = [(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
+              (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")]
+
+    def to_roman(n):
+        out = ""
+        for value, sym in values:
+            while n >= value:
+                out += sym
+                n -= value
+        return out
+
+    if not s or any(ch not in "IVXLCDM" for ch in s):
+        raise ValueError(s)
+    total, i = 0, 0
+    for value, sym in values:
+        while s.startswith(sym, i):
+            total += value
+            i += len(sym)
+    if i != len(s) or not 1 <= total <= 3999 or to_roman(total) != s:
+        raise ValueError(s)
+    return total
+'''
+
+[[task]]
+id = "merge_intervals"
+entry_point = "merge_intervals"
+prompt = """
+Write merge_intervals(intervals: list[list[int]]) -> list[list[int]]. The input is a list of [start, end]
+pairs in any order. Merge pairs that overlap or touch (they share an end point), and return the merged pairs
+sorted by start. Do not modify the input list.
+"""
+tests = """
+assert merge_intervals([[1, 3], [2, 6], [8, 10]]) == [[1, 6], [8, 10]]
+assert merge_intervals([]) == []
+"""
+hidden_tests = """
+assert merge_intervals([[1, 2], [2, 3]]) == [[1, 3]]
+assert merge_intervals([[5, 7], [1, 2]]) == [[1, 2], [5, 7]]
+assert merge_intervals([[1, 10], [2, 3], [4, 5]]) == [[1, 10]]
+assert merge_intervals([[3, 3]]) == [[3, 3]]
+data = [[4, 5], [1, 4]]; merge_intervals(data); assert data == [[4, 5], [1, 4]]
+"""
+reference = '''
+def merge_intervals(intervals):
+    merged = []
+    for start, end in sorted(intervals):
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return merged
+'''
+
+[[task]]
+id = "parse_duration"
+entry_point = "parse_duration"
+prompt = """
+Write parse_duration(text: str) -> int that returns the number of seconds in a duration such as "1h30m",
+"45s" or "2d 4h". Units are d, h, m and s, each written after a whole number. Spaces between parts are
+allowed. Each unit may appear at most once and units must be in the order d, h, m, s. Raise ValueError for
+an empty string, an unknown unit, a number without a unit, a repeated unit or units out of order.
+"""
+tests = """
+assert parse_duration("1h30m") == 5400
+assert parse_duration("45s") == 45
+assert raises(ValueError, parse_duration, "")
+"""
+hidden_tests = """
+assert parse_duration("2d 4h") == 187200
+assert parse_duration("1d2h3m4s") == 93784
+assert parse_duration(" 10m ") == 600
+assert raises(ValueError, parse_duration, "10")
+assert raises(ValueError, parse_duration, "5x")
+assert raises(ValueError, parse_duration, "1m1m")
+assert raises(ValueError, parse_duration, "1s1m")
+"""
+reference = '''
+import re
+
+def parse_duration(text):
+    parts = re.findall(r"\s*(\d+)([a-z]?)\s*", text)
+    if not text.strip() or "".join(n + u for n, u in parts) != re.sub(r"\s+", "", text):
+        raise ValueError(text)
+    scale = {"d": 86400, "h": 3600, "m": 60, "s": 1}
+    order = "dhms"
+    total, last = 0, -1
+    for number, unit in parts:
+        if unit not in scale:
+            raise ValueError(text)
+        position = order.index(unit)
+        if position <= last:
+            raise ValueError(text)
+        last = position
+        total += int(number) * scale[unit]
+    return total
+'''
+
+[[task]]
+id = "chunk_text"
+entry_point = "chunk_text"
+prompt = """
+Write chunk_text(text: str, max_len: int) -> list[str] that splits text into chunks of at most max_len
+characters. Split on whitespace: words in a chunk are joined by single spaces, and a chunk is filled with as
+many whole words as fit. A word longer than max_len is cut into pieces of exactly max_len characters (the
+last piece may be shorter), and each piece is its own chunk. Return [] for text with no words. Raise
+ValueError if max_len < 1.
+"""
+tests = """
+assert chunk_text("the quick brown fox", 9) == ["the quick", "brown fox"]
+assert chunk_text("", 5) == []
+"""
+hidden_tests = """
+assert chunk_text("a  b   c", 3) == ["a b", "c"]
+assert chunk_text("abcdefghij", 4) == ["abcd", "efgh", "ij"]
+assert chunk_text("hi abcdefgh yo", 4) == ["hi", "abcd", "efgh", "yo"]
+assert chunk_text("one", 3) == ["one"]
+assert raises(ValueError, chunk_text, "x", 0)
+assert chunk_text("   ", 4) == []
+"""
+reference = '''
+def chunk_text(text, max_len):
+    if max_len < 1:
+        raise ValueError(max_len)
+    chunks, current = [], ""
+    for word in text.split():
+        pieces = [word[i:i + max_len] for i in range(0, len(word), max_len)]
+        for piece in pieces:
+            if not current:
+                current = piece
+            elif len(current) + 1 + len(piece) <= max_len and len(pieces) == 1:
+                current += " " + piece
+            else:
+                chunks.append(current)
+                current = piece
+        if len(pieces) > 1:
+            chunks.append(current)
+            current = ""
+    if current:
+        chunks.append(current)
+    return chunks
+'''
+
+[[task]]
+id = "top_k_words"
+entry_point = "top_k_words"
+prompt = """
+Write top_k_words(text: str, k: int) -> list[tuple[str, int]] that returns the k most common words with
+their counts. Words are runs of the letters a-z and apostrophes, matched case-insensitively and reported in
+lower case. Sort by count, highest first, and break ties alphabetically. Return fewer than k items if there
+are fewer distinct words, and [] when k <= 0.
+"""
+tests = """
+assert top_k_words("the cat and the hat", 1) == [("the", 2)]
+assert top_k_words("b a b a c", 2) == [("a", 2), ("b", 2)]
+"""
+hidden_tests = """
+assert top_k_words("Don't stop, don't STOP!", 2) == [("don't", 2), ("stop", 2)]
+assert top_k_words("x", 5) == [("x", 1)]
+assert top_k_words("one two", 0) == []
+assert top_k_words("", 3) == []
+assert top_k_words("Zeta zeta alpha beta beta 42 beta", 3) == [("beta", 3), ("zeta", 2), ("alpha", 1)]
+"""
+reference = '''
+import re
+from collections import Counter
+
+def top_k_words(text, k):
+    if k <= 0:
+        return []
+    counts = Counter(re.findall(r"[a-z']+", text.lower()))
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:k]
+'''
+
+[[task]]
+id = "luhn_valid"
+entry_point = "luhn_valid"
+prompt = """
+Write luhn_valid(number: str) -> bool that checks a card-style number with the Luhn checksum. Spaces are
+allowed anywhere and ignored. Any other non-digit character makes it invalid. After removing spaces, a
+string with fewer than 2 digits is invalid.
+"""
+tests = """
+assert luhn_valid("4539 3195 0343 6467") is True
+assert luhn_valid("8273 1232 7352 0569") is False
+"""
+hidden_tests = """
+assert luhn_valid("0") is False
+assert luhn_valid(" 0") is False
+assert luhn_valid("0 0") is True
+assert luhn_valid("059") is True
+assert luhn_valid("055-444-285") is False
+assert luhn_valid("091") is True
+assert luhn_valid("") is False
+"""
+reference = '''
+def luhn_valid(number):
+    digits = number.replace(" ", "")
+    if len(digits) < 2 or not digits.isdigit() or not digits.isascii():
+        return False
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        d = int(ch)
+        if i % 2 == 1:
+            d = d * 2 - 9 if d > 4 else d * 2
+        total += d
+    return total % 10 == 0
+'''
+
+[[task]]
+id = "flatten_dict"
+entry_point = "flatten_dict"
+prompt = """
+Write flatten_dict(data: dict) -> dict that flattens nested dicts and lists into one level, joining keys with
+dots. List items use their index as the key, so {"a": [{"b": 1}]} becomes {"a.0.b": 1}. Empty dicts and
+empty lists are kept as values ({"a": {}} stays {"a": {}}). Non-string keys are converted with str().
+"""
+tests = """
+assert flatten_dict({"a": {"b": 1, "c": 2}}) == {"a.b": 1, "a.c": 2}
+assert flatten_dict({"a": [{"b": 1}]}) == {"a.0.b": 1}
+"""
+hidden_tests = """
+assert flatten_dict({}) == {}
+assert flatten_dict({"a": {}}) == {"a": {}}
+assert flatten_dict({"a": [], "b": [1, [2, 3]]}) == {"a": [], "b.0": 1, "b.1.0": 2, "b.1.1": 3}
+assert flatten_dict({1: {2: "x"}}) == {"1.2": "x"}
+assert flatten_dict({"a": {"b": {"c": None}}}) == {"a.b.c": None}
+"""
+reference = '''
+def flatten_dict(data):
+    out = {}
+
+    def walk(value, prefix):
+        if isinstance(value, dict) and value:
+            items = value.items()
+        elif isinstance(value, list) and value:
+            items = enumerate(value)
+        else:
+            out[prefix] = value
+            return
+        for key, child in items:
+            walk(child, f"{prefix}.{key}" if prefix else str(key))
+
+    for key, value in data.items():
+        walk(value, str(key))
+    return out
+'''
+
+[[task]]
+id = "business_days"
+entry_point = "business_days"
+prompt = """
+Write business_days(start: str, end: str) -> int. Both arguments are ISO dates ("YYYY-MM-DD"). Count the
+weekdays (Monday to Friday) from start, inclusive, to end, exclusive. If end is before start, return the
+negative of business_days(end, start).
+"""
+tests = """
+assert business_days("2024-01-01", "2024-01-08") == 5
+assert business_days("2024-01-01", "2024-01-01") == 0
+"""
+hidden_tests = """
+assert business_days("2024-01-06", "2024-01-08") == 0
+assert business_days("2024-01-05", "2024-01-06") == 1
+assert business_days("2024-01-08", "2024-01-01") == -5
+assert business_days("2024-02-26", "2024-03-04") == 5
+assert business_days("2023-12-25", "2024-12-25") == 262
+"""
+reference = '''
+from datetime import date, timedelta
+
+def business_days(start, end):
+    a, b = date.fromisoformat(start), date.fromisoformat(end)
+    if b < a:
+        return -business_days(end, start)
+    weeks, extra = divmod((b - a).days, 7)
+    count = weeks * 5
+    for i in range(extra):
+        if (a + timedelta(days=i)).weekday() < 5:
+            count += 1
+    return count
+'''
+
+[[task]]
+id = "rle_encode"
+entry_point = "rle_encode"
+prompt = """
+Write rle_encode(text: str) -> str that run-length encodes a string as count followed by character, for
+example "aaab" -> "3a1b". The encoding is case-sensitive. Raise ValueError if the text contains a digit,
+because the output could not be decoded.
+"""
+tests = """
+assert rle_encode("aaab") == "3a1b"
+assert rle_encode("") == ""
+"""
+hidden_tests = """
+assert rle_encode("aAa") == "1a1A1a"
+assert rle_encode("aaaaaaaaaaaa") == "12a"
+assert rle_encode("  x") == "2 1x"
+assert raises(ValueError, rle_encode, "a1")
+"""
+reference = '''
+from itertools import groupby
+
+def rle_encode(text):
+    if any(ch.isdigit() for ch in text):
+        raise ValueError(text)
+    return "".join(f"{len(list(group))}{ch}" for ch, group in groupby(text))
+'''
+
+[[task]]
+id = "semver_compare"
+entry_point = "semver_compare"
+prompt = """
+Write semver_compare(a: str, b: str) -> int that compares two semantic versions such as "1.4.2" or
+"2.0.0-rc.1" and returns -1, 0 or 1. Compare major, minor and patch as numbers. A version with a pre-release
+part (after "-") is lower than the same version without one. Pre-release parts are compared identifier by
+identifier, split on ".": numeric identifiers compare as numbers and are lower than text identifiers, text
+compares as ASCII, and if all shared identifiers are equal the shorter list is lower. Ignore build metadata
+after "+".
+"""
+tests = """
+assert semver_compare("1.0.0", "2.0.0") == -1
+assert semver_compare("1.0.0-alpha", "1.0.0") == -1
+assert semver_compare("1.2.3", "1.2.3") == 0
+"""
+hidden_tests = """
+assert semver_compare("1.10.0", "1.9.0") == 1
+assert semver_compare("1.0.0-alpha.1", "1.0.0-alpha") == 1
+assert semver_compare("1.0.0-alpha.beta", "1.0.0-alpha.1") == 1
+assert semver_compare("1.0.0-rc.10", "1.0.0-rc.2") == 1
+assert semver_compare("1.0.0+build.5", "1.0.0") == 0
+assert semver_compare("1.0.0-beta", "1.0.0-alpha") == 1
+"""
+reference = '''
+def semver_compare(a, b):
+    def parse(version):
+        version = version.split("+", 1)[0]
+        core, _, pre = version.partition("-")
+        nums = tuple(int(x) for x in core.split("."))
+        return nums, (pre.split(".") if pre else [])
+
+    def cmp(x, y):
+        return (x > y) - (x < y)
+
+    (na, pa), (nb, pb) = parse(a), parse(b)
+    if na != nb:
+        return cmp(na, nb)
+    if not pa or not pb:
+        return cmp(not pa, not pb)
+    for x, y in zip(pa, pb):
+        if x == y:
+            continue
+        if x.isdigit() and y.isdigit():
+            return cmp(int(x), int(y))
+        if x.isdigit() != y.isdigit():
+            return -1 if x.isdigit() else 1
+        return cmp(x, y)
+    return cmp(len(pa), len(pb))
+'''
+
+[[task]]
+id = "spiral_order"
+entry_point = "spiral_order"
+prompt = """
+Write spiral_order(matrix: list[list[int]]) -> list[int] that returns the elements of a rectangular matrix in
+clockwise spiral order, starting at the top-left corner. Handle empty matrices and single rows or columns.
+"""
+tests = """
+assert spiral_order([[1, 2, 3], [4, 5, 6], [7, 8, 9]]) == [1, 2, 3, 6, 9, 8, 7, 4, 5]
+"""
+hidden_tests = """
+assert spiral_order([]) == []
+assert spiral_order([[]]) == []
+assert spiral_order([[1, 2, 3, 4]]) == [1, 2, 3, 4]
+assert spiral_order([[1], [2], [3]]) == [1, 2, 3]
+assert spiral_order([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]) == [1, 2, 3, 4, 8, 12, 11, 10, 9, 5, 6, 7]
+assert spiral_order([[1, 2], [3, 4], [5, 6]]) == [1, 2, 4, 6, 5, 3]
+"""
+reference = '''
+def spiral_order(matrix):
+    rows = [list(row) for row in matrix if row]
+    out = []
+    while rows:
+        out.extend(rows.pop(0))
+        rows = [list(r) for r in zip(*rows)][::-1]
+    return out
+'''
+
+[[task]]
+id = "balanced"
+entry_point = "balanced"
+prompt = """
+Write balanced(text: str) -> bool that checks whether the brackets (), [] and {} in text are balanced and
+properly nested. Brackets inside single-quoted or double-quoted strings are ignored. A backslash inside a
+quoted string escapes the next character. An unterminated quoted string makes the text unbalanced.
+"""
+tests = """
+assert balanced("f(a[1], {b: 2})") is True
+assert balanced("(]") is False
+"""
+hidden_tests = """
+assert balanced("") is True
+assert balanced("print(')')") is True
+assert balanced('x = "[" + y') is True
+assert balanced('s = "\\\\"" + (') is False
+assert balanced("'unterminated (") is False
+assert balanced("(((") is False
+assert balanced("a)b(") is False
+assert balanced('say("it\\'s (fine)")') is True
+"""
+reference = '''
+def balanced(text):
+    pairs = {")": "(", "]": "[", "}": "{"}
+    stack = []
+    quote = None
+    escaped = False
+    for ch in text:
+        if quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        elif ch in "([{":
+            stack.append(ch)
+        elif ch in pairs:
+            if not stack or stack.pop() != pairs[ch]:
+                return False
+    return quote is None and not stack
+'''
+
+[[task]]
+id = "split_csv_line"
+entry_point = "split_csv_line"
+prompt = """
+Write split_csv_line(line: str) -> list[str] that splits one CSV line into fields. Fields are separated by
+commas. A field may be wrapped in double quotes, in which case it can contain commas, and a doubled quote
+("") inside it stands for one quote character. Whitespace is kept as is. An empty line is one empty field.
+Raise ValueError for an unterminated quoted field. Do not use the csv module.
+"""
+tests = """
+assert split_csv_line("a,b,c") == ["a", "b", "c"]
+assert split_csv_line('x,"y, z",w') == ["x", "y, z", "w"]
+"""
+hidden_tests = """
+assert split_csv_line("") == [""]
+assert split_csv_line("a,,") == ["a", "", ""]
+assert split_csv_line('"say ""hi""\",2') == ['say "hi"', "2"]
+assert split_csv_line(' a , b ') == [" a ", " b "]
+assert split_csv_line('""') == [""]
+assert raises(ValueError, split_csv_line, '"open,field')
+"""
+reference = '''
+def split_csv_line(line):
+    fields, current, i, quoted = [], "", 0, False
+    while i < len(line):
+        ch = line[i]
+        if quoted:
+            if ch == '"':
+                if i + 1 < len(line) and line[i + 1] == '"':
+                    current += '"'
+                    i += 1
+                else:
+                    quoted = False
+            else:
+                current += ch
+        elif ch == '"' and current == "":
+            quoted = True
+        elif ch == ",":
+            fields.append(current)
+            current = ""
+        else:
+            current += ch
+        i += 1
+    if quoted:
+        raise ValueError("unterminated quoted field")
+    fields.append(current)
+    return fields
+'''
+
+[[task]]
+id = "humanize_bytes"
+entry_point = "humanize_bytes"
+prompt = """
+Write humanize_bytes(n: int) -> str that formats a byte count with binary units. Below 1024 return the
+whole number with " B" (for example "512 B"). Otherwise divide by 1024 until the value is below 1024 and
+format it with one decimal place and the unit KiB, MiB, GiB, TiB or PiB (for example "1.5 KiB"). Stop at
+PiB even for larger values. Negative numbers keep their sign: -2048 -> "-2.0 KiB".
+"""
+tests = """
+assert humanize_bytes(512) == "512 B"
+assert humanize_bytes(1536) == "1.5 KiB"
+"""
+hidden_tests = """
+assert humanize_bytes(0) == "0 B"
+assert humanize_bytes(1023) == "1023 B"
+assert humanize_bytes(1024) == "1.0 KiB"
+assert humanize_bytes(-2048) == "-2.0 KiB"
+assert humanize_bytes(1024 ** 3 * 5) == "5.0 GiB"
+assert humanize_bytes(1024 ** 6) == "1024.0 PiB"
+"""
+reference = '''
+def humanize_bytes(n):
+    sign = "-" if n < 0 else ""
+    value = abs(n)
+    if value < 1024:
+        return f"{sign}{value} B"
+    units = ["KiB", "MiB", "GiB", "TiB", "PiB"]
+    value = value / 1024
+    unit = 0
+    while value >= 1024 and unit < len(units) - 1:
+        value /= 1024
+        unit += 1
+    return f"{sign}{value:.1f} {units[unit]}"
+'''
+
+[[task]]
+id = "lru_cache"
+entry_point = "LRUCache"
+prompt = """
+Write a class LRUCache(capacity: int) with get(key) and put(key, value). get returns the value, or -1 if the
+key is missing, and counts as a use. put inserts or updates a key and counts as a use; when the cache is over
+capacity it evicts the least recently used key. len(cache) returns the number of keys stored. A capacity of 0
+stores nothing.
+"""
+tests = """
+c = LRUCache(2); c.put(1, 1); c.put(2, 2); assert c.get(1) == 1
+c = LRUCache(2); c.put(1, 1); c.put(2, 2); c.put(3, 3); assert c.get(1) == -1
+"""
+hidden_tests = """
+c = LRUCache(2); c.put(1, 1); c.put(2, 2); c.get(1); c.put(3, 3); assert c.get(2) == -1 and c.get(1) == 1
+c = LRUCache(2); c.put(1, 1); c.put(2, 2); c.put(1, 10); c.put(3, 3); assert c.get(1) == 10 and c.get(2) == -1
+c = LRUCache(0); c.put(1, 1); assert c.get(1) == -1 and len(c) == 0
+c = LRUCache(3); c.put("a", 1); c.put("b", 2); assert len(c) == 2
+"""
+reference = '''
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.data = OrderedDict()
+
+    def get(self, key):
+        if key not in self.data:
+            return -1
+        self.data.move_to_end(key)
+        return self.data[key]
+
+    def put(self, key, value):
+        self.data[key] = value
+        self.data.move_to_end(key)
+        while len(self.data) > self.capacity:
+            self.data.popitem(last=False)
+
+    def __len__(self):
+        return len(self.data)
+'''
+
+[[task]]
+id = "number_to_words"
+entry_point = "number_to_words"
+prompt = """
+Write number_to_words(n: int) -> str that spells out an integer from 0 to 999999 in British English words,
+in lower case. Hyphenate tens and units ("forty-two"), use "and" after hundreds when more follows ("one
+hundred and five"), and when the thousands are followed by a number under 100 put "and" before it
+("two thousand and seven"). Otherwise separate thousands with a space ("one thousand two hundred"). Raise
+ValueError outside the range.
+"""
+tests = """
+assert number_to_words(0) == "zero"
+assert number_to_words(42) == "forty-two"
+assert number_to_words(105) == "one hundred and five"
+"""
+hidden_tests = """
+assert number_to_words(2007) == "two thousand and seven"
+assert number_to_words(1200) == "one thousand two hundred"
+assert number_to_words(999999) == "nine hundred and ninety-nine thousand nine hundred and ninety-nine"
+assert number_to_words(100000) == "one hundred thousand"
+assert number_to_words(13) == "thirteen"
+assert number_to_words(70) == "seventy"
+assert raises(ValueError, number_to_words, 1000000)
+assert raises(ValueError, number_to_words, -1)
+"""
+reference = '''
+ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+def _below_100(n):
+    if n < 20:
+        return ONES[n]
+    tens, ones = divmod(n, 10)
+    return TENS[tens] + (f"-{ONES[ones]}" if ones else "")
+
+def _below_1000(n):
+    hundreds, rest = divmod(n, 100)
+    if not hundreds:
+        return _below_100(rest)
+    words = f"{ONES[hundreds]} hundred"
+    return words + (f" and {_below_100(rest)}" if rest else "")
+
+def number_to_words(n):
+    if not 0 <= n <= 999999:
+        raise ValueError(n)
+    thousands, rest = divmod(n, 1000)
+    if not thousands:
+        return _below_1000(rest)
+    words = f"{_below_1000(thousands)} thousand"
+    if not rest:
+        return words
+    joiner = " and " if rest < 100 else " "
+    return words + joiner + _below_1000(rest)
+'''
+
+[[task]]
+id = "next_permutation"
+entry_point = "next_permutation"
+prompt = """
+Write next_permutation(nums: list[int]) -> list[int] that returns the next permutation of nums in
+lexicographic order as a new list. If nums is already the last permutation, return the first one (sorted
+ascending). The input may contain duplicates and must not be modified.
+"""
+tests = """
+assert next_permutation([1, 2, 3]) == [1, 3, 2]
+assert next_permutation([3, 2, 1]) == [1, 2, 3]
+"""
+hidden_tests = """
+assert next_permutation([1, 1, 5]) == [1, 5, 1]
+assert next_permutation([1, 5, 1]) == [5, 1, 1]
+assert next_permutation([]) == []
+assert next_permutation([7]) == [7]
+assert next_permutation([2, 2]) == [2, 2]
+data = [1, 3, 2]; out = next_permutation(data); assert data == [1, 3, 2] and out == [2, 1, 3]
+"""
+reference = '''
+def next_permutation(nums):
+    a = list(nums)
+    i = len(a) - 2
+    while i >= 0 and a[i] >= a[i + 1]:
+        i -= 1
+    if i < 0:
+        return sorted(a)
+    j = len(a) - 1
+    while a[j] <= a[i]:
+        j -= 1
+    a[i], a[j] = a[j], a[i]
+    a[i + 1:] = reversed(a[i + 1:])
+    return a
+'''
+
+[[task]]
+id = "moving_average"
+entry_point = "moving_average"
+prompt = """
+Write moving_average(values: list[float], window: int) -> list[float] that returns the simple moving average
+of each full window, so the result has len(values) - window + 1 items, each rounded to 2 decimal places.
+Return [] when the window is longer than the list. Raise ValueError when window < 1.
+"""
+tests = """
+assert moving_average([1, 2, 3, 4], 2) == [1.5, 2.5, 3.5]
+"""
+hidden_tests = """
+assert moving_average([1, 2], 3) == []
+assert moving_average([], 1) == []
+assert moving_average([5], 1) == [5.0]
+assert moving_average([1, 2, 2], 3) == [1.67]
+assert raises(ValueError, moving_average, [1, 2], 0)
+"""
+reference = '''
+def moving_average(values, window):
+    if window < 1:
+        raise ValueError(window)
+    return [round(sum(values[i:i + window]) / window, 2) for i in range(len(values) - window + 1)]
+'''
+
+[[task]]
+id = "topo_sort"
+entry_point = "topo_sort"
+prompt = """
+Write topo_sort(deps: dict[str, list[str]]) -> list[str]. deps maps each item to the items it depends on.
+Return every item (including items that only appear as dependencies) in an order where each item comes after
+all of its dependencies. When several items are ready at the same time, take them in alphabetical order.
+Raise ValueError if there is a cycle.
+"""
+tests = """
+assert topo_sort({"app": ["db", "cache"], "db": [], "cache": []}) == ["cache", "db", "app"]
+"""
+hidden_tests = """
+assert topo_sort({}) == []
+assert topo_sort({"b": ["a"]}) == ["a", "b"]
+assert topo_sort({"c": [], "b": [], "a": []}) == ["a", "b", "c"]
+assert topo_sort({"z": ["y"], "y": ["x"], "a": ["x"]}) == ["x", "a", "y", "z"]
+assert raises(ValueError, topo_sort, {"a": ["b"], "b": ["a"]})
+assert raises(ValueError, topo_sort, {"a": ["a"]})
+"""
+reference = '''
+import heapq
+
+def topo_sort(deps):
+    nodes = set(deps)
+    for needs in deps.values():
+        nodes.update(needs)
+    remaining = {n: set(deps.get(n, [])) for n in nodes}
+    users = {n: [] for n in nodes}
+    for node, needs in remaining.items():
+        for need in needs:
+            users[need].append(node)
+    ready = [n for n, needs in remaining.items() if not needs]
+    heapq.heapify(ready)
+    order = []
+    while ready:
+        node = heapq.heappop(ready)
+        order.append(node)
+        for user in users[node]:
+            remaining[user].discard(node)
+            if not remaining[user]:
+                heapq.heappush(ready, user)
+    if len(order) != len(nodes):
+        raise ValueError("cycle")
+    return order
+'''
+
+# ---- harder generate tasks: unusual conventions that a first draft often gets wrong ----
+
+[[task]]
+id = "evaluate_expression"
+entry_point = "evaluate"
+prompt = """
+Write evaluate(expr: str) -> float that evaluates an arithmetic expression without using eval(). Support
+numbers (integers and decimals), + - * /, ^ for powers, parentheses, unary minus and unary plus, and spaces.
+Precedence from high to low: ^, then unary minus/plus, then * and /, then + and -. ^ is right-associative and
+binds tighter than unary minus, so -2^2 is -4 and 2^3^2 is 512, while an exponent may itself start with a
+minus (2^-1 is 0.5). Always return a float. Raise ValueError for malformed input and let ZeroDivisionError
+propagate for division by zero.
+"""
+tests = """
+assert evaluate("1 + 2 * 3") == 7.0
+assert evaluate("2^3^2") == 512.0
+assert evaluate("-2^2") == -4.0
+assert raises(ValueError, evaluate, "2 +")
+"""
+hidden_tests = """
+assert evaluate("(1 + 2) * 3") == 9.0
+assert evaluate("2^-1") == 0.5
+assert evaluate("--3") == 3.0
+assert evaluate("7 / 2") == 3.5
+assert evaluate("1.5 * 4") == 6.0
+assert raises(ZeroDivisionError, evaluate, "1 / 0")
+assert raises(ValueError, evaluate, "(1 + 2")
+assert raises(ValueError, evaluate, "")
+assert raises(ValueError, evaluate, "2 3")
+assert raises(ValueError, evaluate, "__import__('os')")
+"""
+reference = '''
+import re
+
+def evaluate(expr):
+    tokens = re.findall(r"\d+\.\d+|\d+|[-+*/^()]|\S", expr)
+    if not tokens:
+        raise ValueError("empty")
+    pos = 0
+
+    def peek():
+        return tokens[pos] if pos < len(tokens) else None
+
+    def take():
+        nonlocal pos
+        tok = peek()
+        if tok is None:
+            raise ValueError("unexpected end")
+        pos += 1
+        return tok
+
+    def expression():
+        value = term()
+        while peek() in ("+", "-"):
+            value = value + term() if take() == "+" else value - term()
+        return value
+
+    def term():
+        value = unary()
+        while peek() in ("*", "/"):
+            value = value * unary() if take() == "*" else value / unary()
+        return value
+
+    def unary():
+        if peek() in ("-", "+"):
+            return -unary() if take() == "-" else unary()
+        return power()
+
+    def power():
+        base = atom()
+        if peek() == "^":
+            take()
+            return base ** unary()
+        return base
+
+    def atom():
+        tok = take()
+        if tok == "(":
+            value = expression()
+            if take() != ")":
+                raise ValueError("missing )")
+            return value
+        if re.fullmatch(r"\d+(\.\d+)?", tok):
+            return float(tok)
+        raise ValueError(f"unexpected {tok!r}")
+
+    result = expression()
+    if pos != len(tokens):
+        raise ValueError("trailing input")
+    return float(result)
+'''
+
+[[task]]
+id = "justify"
+entry_point = "justify"
+prompt = """
+Write justify(words: list[str], width: int) -> list[str] that lays words out in lines of exactly width
+characters. Fill each line greedily with as many words as fit with at least one space between them. Spread
+the extra spaces of a line as evenly as possible between its words; when they do not divide evenly, the gaps
+on the left get one more space than those on the right. A line with a single word is left-aligned and padded
+with spaces on the right. The last line is left-aligned with single spaces and padded on the right. Every
+word is at most width characters long. Return [] for no words.
+"""
+tests = """
+assert justify(["This", "is", "an", "example", "of", "text", "justification."], 16) == ["This    is    an", "example  of text", "justification.  "]
+assert justify(["a"], 3) == ["a  "]
+"""
+hidden_tests = """
+assert justify([], 5) == []
+assert justify(["What", "must", "be", "acknowledgment", "shall", "be"], 16) == ["What   must   be", "acknowledgment  ", "shall be        "]
+assert justify(["ab", "cd", "ef"], 7) == ["ab   cd", "ef     "]
+assert justify(["a", "b", "c", "d"], 6) == ["a  b c", "d     "]
+assert justify(["a", "b", "c", "d", "e"], 8) == ["a  b c d", "e       "]
+"""
+reference = '''
+def justify(words, width):
+    lines, current, length = [], [], 0
+    for word in words:
+        if current and length + len(current) + len(word) > width:
+            lines.append(current)
+            current, length = [], 0
+        current.append(word)
+        length += len(word)
+    if current:
+        lines.append(current)
+    out = []
+    for i, line in enumerate(lines):
+        if i == len(lines) - 1 or len(line) == 1:
+            out.append(" ".join(line).ljust(width))
+            continue
+        spaces = width - sum(len(w) for w in line)
+        gaps = len(line) - 1
+        text = ""
+        for j, word in enumerate(line[:-1]):
+            text += word + " " * (spaces // gaps + (1 if j < spaces % gaps else 0))
+        out.append(text + line[-1])
+    return out
+'''
+
+[[task]]
+id = "wildcard_match"
+entry_point = "wildcard_match"
+prompt = """
+Write wildcard_match(pattern: str, text: str) -> bool. The pattern must match the whole text. "?" matches
+exactly one character, "*" matches any sequence including an empty one, and a backslash makes the next
+character literal (so "\\*" matches a literal star and "\\\\" a literal backslash). A trailing lone
+backslash matches a literal backslash. Do not use fnmatch or re.
+"""
+tests = """
+assert wildcard_match("*.py", "main.py") is True
+assert wildcard_match("a?c", "abc") is True
+assert wildcard_match("a\\\\*c", "a*c") is True
+assert wildcard_match("a\\\\*c", "abc") is False
+"""
+hidden_tests = """
+assert wildcard_match("", "") is True
+assert wildcard_match("*", "") is True
+assert wildcard_match("?", "") is False
+assert wildcard_match("a*b*c", "aXXbYYc") is True
+assert wildcard_match("a*b*c", "aXXbYY") is False
+assert wildcard_match("\\\\?", "?") is True
+assert wildcard_match("\\\\?", "x") is False
+assert wildcard_match("x\\\\", "x\\\\") is True
+assert wildcard_match("**a", "bba") is True
+assert wildcard_match("*" * 30 + "b", "a" * 40) is False
+"""
+reference = '''
+def wildcard_match(pattern, text):
+    tokens = []
+    i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "\\":
+            tokens.append(("lit", pattern[i + 1] if i + 1 < len(pattern) else "\\"))
+            i += 2
+        elif ch in "*?":
+            tokens.append((ch, ""))
+            i += 1
+        else:
+            tokens.append(("lit", ch))
+            i += 1
+    n = len(text)
+    reach = [False] * (n + 1)
+    reach[0] = True
+    for kind, value in tokens:
+        nxt = [False] * (n + 1)
+        if kind == "*":
+            seen = False
+            for j in range(n + 1):
+                seen = seen or reach[j]
+                nxt[j] = seen
+        else:
+            for j in range(n):
+                if reach[j] and (kind == "?" or text[j] == value):
+                    nxt[j + 1] = True
+        reach = nxt
+    return reach[n]
+'''
+
+[[task]]
+id = "title_case"
+entry_point = "title_case"
+prompt = """
+Write title_case(text: str) -> str for headlines. Split on whitespace and join the words with single spaces.
+A word that has an upper-case letter anywhere after its first character (like "iPhone" or "NASA") is kept
+exactly as written. Otherwise the word is lower-cased, and then: the small words a, an, and, as, at, but, by,
+for, in, of, on, or, the, to stay lower case unless they are the first or last word; every other word has
+the first letter of each hyphen-separated part capitalised ("state-of-the-art" -> "State-Of-The-Art").
+"""
+tests = """
+assert title_case("the lord of the rings") == "The Lord of the Rings"
+assert title_case("NASA launches new  iPhone app") == "NASA Launches New iPhone App"
+"""
+hidden_tests = """
+assert title_case("") == ""
+assert title_case("what are you waiting for") == "What Are You Waiting For"
+assert title_case("a state-of-the-art plan") == "A State-Of-The-Art Plan"
+assert title_case("WAR AND PEACE") == "WAR AND PEACE"
+assert title_case("war AND peace") == "War AND Peace"
+assert title_case("of") == "Of"
+assert title_case("  spaced   out  ") == "Spaced Out"
+"""
+reference = '''
+SMALL = {"a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to"}
+
+def title_case(text):
+    words = text.split()
+    out = []
+    for i, word in enumerate(words):
+        if any(ch.isupper() for ch in word[1:]):
+            out.append(word)
+            continue
+        lower = word.lower()
+        if 0 < i < len(words) - 1 and lower in SMALL:
+            out.append(lower)
+        else:
+            out.append("-".join(part[:1].upper() + part[1:] for part in lower.split("-")))
+    return " ".join(out)
+'''
+
+[[task]]
+id = "osa_distance"
+entry_point = "osa_distance"
+prompt = """
+Write osa_distance(a: str, b: str) -> int, the optimal string alignment distance: the minimum number of
+single-character insertions, deletions, substitutions and swaps of two adjacent characters needed to turn a
+into b, where no substring is edited more than once. Comparison is case-sensitive.
+"""
+tests = """
+assert osa_distance("kitten", "sitting") == 3
+assert osa_distance("ab", "ba") == 1
+"""
+hidden_tests = """
+assert osa_distance("", "") == 0
+assert osa_distance("", "abc") == 3
+assert osa_distance("ca", "abc") == 3
+assert osa_distance("abcdef", "abdcef") == 1
+assert osa_distance("A", "a") == 1
+assert osa_distance("abc", "abc") == 0
+"""
+reference = '''
+def osa_distance(a, b):
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+'''
+
+[[task]]
+id = "format_table"
+entry_point = "format_table"
+prompt = """
+Write format_table(headers: list[str], rows: list[list]) -> str that renders a plain-text table. Cell text:
+None is an empty string, a float is shown with two decimals, anything else with str(). A column is numeric
+when every non-None cell in it is an int or float (bool does not count) and it has at least one such cell;
+numeric columns are right-aligned, including their header, and other columns are left-aligned. Each column
+is as wide as its widest cell or header. Cells are joined with " | ". Under the header goes a separator line
+made of "-" for each column's width, joined with "-+-". Strip trailing spaces from every line and join the
+lines with "\\n".
+"""
+tests = """
+assert format_table(["item", "qty"], [["apple", 3], ["kiwi", 12]]) == "item  | qty\\n------+----\\napple |   3\\nkiwi  |  12"
+"""
+hidden_tests = """
+assert format_table(["n"], []) == "n\\n-"
+assert format_table(["price", "note"], [[1.5, None], [None, "x"]]) == "price | note\\n------+-----\\n 1.50 |\\n      | x"
+assert format_table(["flag", "v"], [[True, 1], [False, 22]]) == "flag  |  v\\n------+---\\nTrue  |  1\\nFalse | 22"
+assert format_table(["a", "b"], [[None, "long text"]]) == "a | b\\n--+----------\\n  | long text"
+"""
+reference = '''
+def format_table(headers, rows):
+    def text(cell):
+        if cell is None:
+            return ""
+        if isinstance(cell, float):
+            return f"{cell:.2f}"
+        return str(cell)
+
+    def numeric(col):
+        cells = [r[col] for r in rows if r[col] is not None]
+        return bool(cells) and all(isinstance(c, (int, float)) and not isinstance(c, bool) for c in cells)
+
+    cols = range(len(headers))
+    widths = [max([len(headers[c])] + [len(text(r[c])) for r in rows]) for c in cols]
+    right = [numeric(c) for c in cols]
+
+    def line(cells):
+        parts = [cells[c].rjust(widths[c]) if right[c] else cells[c].ljust(widths[c]) for c in cols]
+        return " | ".join(parts).rstrip()
+
+    out = [line(list(headers)), "-+-".join("-" * w for w in widths)]
+    out += [line([text(r[c]) for c in cols]) for r in rows]
+    return "\n".join(out)
+'''
+
+[[task]]
+id = "natural_sort"
+entry_point = "natural_sort"
+prompt = """
+Write natural_sort(items: list[str]) -> list[str] that returns the items in natural order. Split each string
+into runs of digits and runs of non-digits. Compare runs left to right: two digit runs compare by numeric
+value, two text runs compare case-insensitively, and a digit run sorts before a text run. A string that is a
+prefix of the other (in runs) sorts first. If two strings are still equal (for example "a01" and "a1", or
+"A" and "a"), order them by plain string comparison.
+"""
+tests = """
+assert natural_sort(["file10", "file2", "file1"]) == ["file1", "file2", "file10"]
+assert natural_sort(["b", "A", "a"]) == ["A", "a", "b"]
+"""
+hidden_tests = """
+assert natural_sort([]) == []
+assert natural_sort(["a1", "a01", "a"]) == ["a", "a01", "a1"]
+assert natural_sort(["x", "1"]) == ["1", "x"]
+assert natural_sort(["v1.10", "v1.9", "v1.9a"]) == ["v1.9", "v1.9a", "v1.10"]
+assert natural_sort(["img12b", "img12a", "IMG3"]) == ["IMG3", "img12a", "img12b"]
+"""
+reference = '''
+import re
+
+def natural_sort(items):
+    def key(s):
+        runs = []
+        for run in re.findall(r"\d+|\D+", s):
+            runs.append((0, int(run), "") if run.isdigit() else (1, 0, run.lower()))
+        return (runs, s)
+    return sorted(items, key=key)
+'''
+
+[[task]]
+id = "parse_query"
+entry_point = "parse_query"
+prompt = """
+Write parse_query(query: str) -> dict[str, list[str]] that parses a URL query string without using urllib.
+A leading "?" is ignored. Split on "&" and skip empty pieces. Split each piece on the first "="; a piece with
+no "=" has the value "". In keys and values, "+" means a space, and %XX escapes are decoded as UTF-8 bytes; a
+"%" not followed by two hex digits is kept as is. Repeated keys collect their values in order.
+"""
+tests = """
+assert parse_query("a=1&b=2&a=3") == {"a": ["1", "3"], "b": ["2"]}
+assert parse_query("?q=hello+world") == {"q": ["hello world"]}
+assert parse_query("name=Ren%C3%A9e") == {"name": ["Renée"]}
+"""
+hidden_tests = """
+assert parse_query("") == {}
+assert parse_query("flag&x=") == {"flag": [""], "x": [""]}
+assert parse_query("a=1&&b=2") == {"a": ["1"], "b": ["2"]}
+assert parse_query("eq=a=b") == {"eq": ["a=b"]}
+assert parse_query("p=100%&q=%zz") == {"p": ["100%"], "q": ["%zz"]}
+assert parse_query("k%20ey=v%2Bw") == {"k ey": ["v+w"]}
+"""
+reference = '''
+import re
+
+def parse_query(query):
+    def decode(s):
+        s = s.replace("+", " ")
+        out = bytearray()
+        i = 0
+        while i < len(s):
+            if s[i] == "%" and re.fullmatch(r"[0-9a-fA-F]{2}", s[i + 1:i + 3]):
+                out.append(int(s[i + 1:i + 3], 16))
+                i += 3
+            else:
+                out += s[i].encode("utf-8")
+                i += 1
+        return out.decode("utf-8", errors="replace")
+
+    result = {}
+    for piece in query.lstrip("?").split("&"):
+        if not piece:
+            continue
+        key, _, value = piece.partition("=")
+        result.setdefault(decode(key), []).append(decode(value))
+    return result
+'''
+
+[[task]]
+id = "compress_ranges"
+entry_point = "compress_ranges"
+prompt = """
+Write compress_ranges(nums: list[int]) -> str that describes a set of integers compactly. Remove duplicates
+and sort. Write each run of three or more consecutive integers as "start-end", and write runs of one or two
+numbers as separate numbers. Join everything with commas and no spaces. Negative numbers keep their sign, so
+a run from -3 to -1 is "-3--1". Return "" for an empty list.
+"""
+tests = """
+assert compress_ranges([1, 2, 3, 5, 7, 8]) == "1-3,5,7,8"
+assert compress_ranges([]) == ""
+"""
+hidden_tests = """
+assert compress_ranges([3, 1, 2, 2]) == "1-3"
+assert compress_ranges([-3, -2, -1, 1]) == "-3--1,1"
+assert compress_ranges([4]) == "4"
+assert compress_ranges([1, 2]) == "1,2"
+assert compress_ranges([-1, 0, 1, 5, 6, 7, 8, 10]) == "-1-1,5-8,10"
+"""
+reference = '''
+def compress_ranges(nums):
+    values = sorted(set(nums))
+    parts, i = [], 0
+    while i < len(values):
+        j = i
+        while j + 1 < len(values) and values[j + 1] == values[j] + 1:
+            j += 1
+        if j - i >= 2:
+            parts.append(f"{values[i]}-{values[j]}")
+        else:
+            parts.extend(str(v) for v in values[i:j + 1])
+        i = j + 1
+    return ",".join(parts)
+'''
+
+# ---- fix tasks: the assistant gets broken code plus the visible tests ----
+
+[[task]]
+id = "fix_binary_search"
+entry_point = "binary_search"
+prompt = "binary_search(items, target) returns the index of target in the sorted list items, or -1 if it is absent."
+starter_code = '''
+def binary_search(items, target):
+    lo, hi = 0, len(items) - 1
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if items[mid] == target:
+            return mid
+        if items[mid] < target:
+            lo = mid
+        else:
+            hi = mid - 1
+    return -1
+'''
+tests = """
+assert binary_search([1, 3, 5, 7], 7) == 3
+assert binary_search([1, 3, 5, 7], 4) == -1
+assert binary_search([], 1) == -1
+"""
+hidden_tests = """
+assert binary_search([5], 5) == 0
+assert binary_search([1, 3, 5, 7, 9], 1) == 0
+assert binary_search([1, 3, 5, 7, 9], 10) == -1
+assert binary_search(list(range(0, 1000, 2)), 998) == 499
+"""
+reference = '''
+def binary_search(items, target):
+    lo, hi = 0, len(items) - 1
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if items[mid] == target:
+            return mid
+        if items[mid] < target:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return -1
+'''
+
+[[task]]
+id = "fix_average"
+entry_point = "average"
+prompt = "average(values) returns the arithmetic mean of a list of numbers as a float, or None for an empty list."
+starter_code = '''
+def average(values):
+    total = 0
+    for v in values:
+        total += v
+    return total // len(values)
+'''
+tests = """
+assert average([1, 2]) == 1.5
+assert average([]) is None
+"""
+hidden_tests = """
+assert average([4]) == 4.0
+assert average([-1, 1]) == 0.0
+assert average([0.5, 0.25]) == 0.375
+"""
+reference = '''
+def average(values):
+    if not values:
+        return None
+    return sum(values) / len(values)
+'''
+
+[[task]]
+id = "fix_palindrome"
+entry_point = "is_palindrome"
+prompt = "is_palindrome(text) returns True if text reads the same forwards and backwards when only letters and digits are kept and case is ignored."
+starter_code = '''
+def is_palindrome(text):
+    return text == text[::-1]
+'''
+tests = """
+assert is_palindrome("racecar") is True
+assert is_palindrome("A man, a plan, a canal: Panama") is True
+assert is_palindrome("hello") is False
+"""
+hidden_tests = """
+assert is_palindrome("") is True
+assert is_palindrome("No 'x' in Nixon") is True
+assert is_palindrome("ab1ba") is True
+assert is_palindrome("ab12ba") is False
+"""
+reference = '''
+def is_palindrome(text):
+    kept = [ch.lower() for ch in text if ch.isalnum()]
+    return kept == kept[::-1]
+'''
+
+[[task]]
+id = "fix_fizzbuzz"
+entry_point = "fizzbuzz"
+prompt = "fizzbuzz(n) returns a list for 1..n where multiples of 3 are 'Fizz', multiples of 5 are 'Buzz', multiples of both are 'FizzBuzz', and other numbers are their string form."
+starter_code = '''
+def fizzbuzz(n):
+    out = []
+    for i in range(1, n):
+        if i % 3 == 0:
+            out.append("Fizz")
+        elif i % 5 == 0:
+            out.append("Buzz")
+        elif i % 15 == 0:
+            out.append("FizzBuzz")
+        else:
+            out.append(str(i))
+    return out
+'''
+tests = """
+assert fizzbuzz(5) == ["1", "2", "Fizz", "4", "Buzz"]
+assert fizzbuzz(15)[-1] == "FizzBuzz"
+"""
+hidden_tests = """
+assert fizzbuzz(0) == []
+assert fizzbuzz(1) == ["1"]
+assert fizzbuzz(30).count("FizzBuzz") == 2
+"""
+reference = '''
+def fizzbuzz(n):
+    out = []
+    for i in range(1, n + 1):
+        if i % 15 == 0:
+            out.append("FizzBuzz")
+        elif i % 3 == 0:
+            out.append("Fizz")
+        elif i % 5 == 0:
+            out.append("Buzz")
+        else:
+            out.append(str(i))
+    return out
+'''
+
+[[task]]
+id = "fix_days_in_month"
+entry_point = "days_in_month"
+prompt = "days_in_month(year, month) returns the number of days in that month of the Gregorian calendar, and raises ValueError for a month outside 1-12."
+starter_code = '''
+def days_in_month(year, month):
+    if month == 2:
+        return 29 if year % 4 == 0 else 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+'''
+tests = """
+assert days_in_month(2024, 2) == 29
+assert days_in_month(1900, 2) == 28
+assert days_in_month(2023, 4) == 30
+"""
+hidden_tests = """
+assert days_in_month(2000, 2) == 29
+assert days_in_month(2023, 2) == 28
+assert days_in_month(2023, 12) == 31
+assert raises(ValueError, days_in_month, 2023, 13)
+assert raises(ValueError, days_in_month, 2023, 0)
+"""
+reference = '''
+def days_in_month(year, month):
+    if not 1 <= month <= 12:
+        raise ValueError(month)
+    if month == 2:
+        leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+        return 29 if leap else 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+'''
+
+[[task]]
+id = "fix_word_count"
+entry_point = "word_count"
+prompt = "word_count(text) returns a dict mapping each lower-cased word to how often it appears. Words are separated by any whitespace, and leading or trailing punctuation from .,!?;: is stripped. Empty results after stripping are skipped."
+starter_code = '''
+def word_count(text, counts={}):
+    for word in text.split(" "):
+        word = word.strip(".,!?;:")
+        counts[word] = counts.get(word, 0) + 1
+    return counts
+'''
+tests = """
+assert word_count("the cat the") == {"the": 2, "cat": 1}
+assert word_count("Hi, hi!") == {"hi": 2}
+"""
+hidden_tests = """
+assert word_count("") == {}
+assert word_count("a\\nb\\tb") == {"a": 1, "b": 2}
+word_count("x"); assert word_count("y") == {"y": 1}
+assert word_count("well ... done") == {"well": 1, "done": 1}
+"""
+reference = '''
+def word_count(text):
+    counts = {}
+    for word in text.split():
+        word = word.strip(".,!?;:").lower()
+        if word:
+            counts[word] = counts.get(word, 0) + 1
+    return counts
+'''

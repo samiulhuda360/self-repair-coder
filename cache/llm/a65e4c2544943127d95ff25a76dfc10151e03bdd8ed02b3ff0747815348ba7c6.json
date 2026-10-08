@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef average(values):\n    if not values:\n        return None\n    total = 0\n    for v in values:\n        total += v\n    return float(total) / len(values)\n```",
+ "prompt_tokens": 286,
+ "completion_tokens": 50,
+ "latency_s": 1.215
+}

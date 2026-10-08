@@ -1,0 +1,6 @@
+{
+ "text": "```python\nfrom __future__ import annotations\n\n\ndef merge_intervals(intervals: list[list[int]]) -> list[list[int]]:\n    if not intervals:\n        return []\n\n    # Create a copy to ensure we do not modify the input list or its inner lists\n    sorted_intervals = sorted([list(interval) for interval in intervals], key=lambda x: x[0])\n    \n    merged: list[list[int]] = []\n    \n    for current in sorted_intervals:\n        if not merged:\n            merged.append(current)\n        else:\n            last = merged[-1]\n            # If current overlaps or touches the last interval\n            if current[0] <= last[1]:\n                last[1] = max(last[1], current[1])\n            else:\n                merged.append(current)\n                \n    return merged\n```",
+ "prompt_tokens": 210,
+ "completion_tokens": 196,
+ "latency_s": 1.425
+}

@@ -1,0 +1,6 @@
+{
+ "text": "```python\nimport re\n\n__all__ = [\"roman_to_int\"]\n\n_ROMAN_REGEX = re.compile(\n    r\"^\"\n    r\"M{0,3}\"\n    r\"(C[DM]|D?C{0,3})\"\n    r\"(X[LC]|L?X{0,3})\"\n    r\"(I[VX]|V?I{0,3})\"\n    r\"$\"\n)\n\n_VALUES = {\n    'I': 1,\n    'V': 5,\n    'X': 10,\n    'L': 50,\n    'C': 100,\n    'D': 500,\n    'M': 1000,\n}\n\n\ndef roman_to_int(s: str) -> int:\n    \"\"\"Converts a valid uppercase Roman numeral (1 to 3999) to an integer.\n\n    Raises ValueError if the string is empty, contains invalid characters,\n    or is not in canonical form.\n    \"\"\"\n    if not isinstance(s, str) or not s:\n        raise ValueError(\"Roman numeral string cannot be empty.\")\n\n    if not _ROMAN_REGEX.match(s):\n        raise ValueError(f\"Invalid or non-canonical Roman numeral: {s!r}\")\n\n    total = 0\n    prev_value = 0\n\n    for char in reversed(s):\n        value = _VALUES.get(char)\n        if value is None:\n            raise ValueError(f\"Invalid character in Roman numeral: {char!r}\")\n\n        if value < prev_value:\n            total -= value\n        else:\n            total += value\n            prev_value = value\n\n    return total\n```",
+ "prompt_tokens": 247,
+ "completion_tokens": 389,
+ "latency_s": 2.119
+}

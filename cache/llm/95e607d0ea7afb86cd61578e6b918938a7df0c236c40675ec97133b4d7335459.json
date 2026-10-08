@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef humanize_bytes(n: int) -> str:\n    units = [\"B\", \"KiB\", \"MiB\", \"GiB\", \"TiB\", \"PiB\"]\n    \n    if abs(n) < 1024:\n        return f\"{n} B\"\n    \n    val = float(n)\n    unit_index = 0\n    \n    # Divide by 1024 while the value is >= 1024 and we haven't reached the max unit (PiB)\n    while abs(val) >= 1024 and unit_index < len(units) - 1:\n        val /= 1024.0\n        unit_index += 1\n        \n    return f\"{val:.1f} {units[unit_index]}\"\n```",
+ "prompt_tokens": 263,
+ "completion_tokens": 187,
+ "latency_s": 1.289
+}

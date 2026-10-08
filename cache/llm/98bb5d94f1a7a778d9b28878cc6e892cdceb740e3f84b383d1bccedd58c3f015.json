@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef word_count(text, counts=None):\n    if counts is None:\n        counts = {}\n    \n    # Split by any whitespace instead of just \" \" to handle tabs, newlines, multiple spaces, etc.\n    for word in text.split():\n        # Strip leading/trailing punctuation and convert to lowercase\n        word = word.strip(\".,!?;:\").lower()\n        \n        # Skip empty results after stripping\n        if word:\n            counts[word] = counts.get(word, 0) + 1\n            \n    return counts\n```",
+ "prompt_tokens": 342,
+ "completion_tokens": 130,
+ "latency_s": 1.448
+}

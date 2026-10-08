@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef is_palindrome(text: str) -> bool:\n    filtered = \"\".join(char.lower() for char in text if char.isalnum())\n    return filtered == filtered[::-1]\n```",
+ "prompt_tokens": 254,
+ "completion_tokens": 47,
+ "latency_s": 0.992
+}

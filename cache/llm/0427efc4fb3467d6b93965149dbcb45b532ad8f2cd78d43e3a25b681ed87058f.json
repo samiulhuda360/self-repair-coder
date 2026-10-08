@@ -1,0 +1,6 @@
+{
+ "text": "```python\nimport unicodedata\nimport re\n\ndef slugify(text: str) -> str:\n    \"\"\"\n    Turns a title into a URL slug.\n    \n    - Lowercases everything\n    - Turns accented letters into their plain ASCII letters\n    - Drops any other non-ASCII characters\n    - Replaces every run of characters that are not a-z or 0-9 with a single hyphen\n    - Strips hyphens from both ends\n    - Returns an empty string if nothing is left\n    \"\"\"\n    # Normalize unicode to decomposed form (NFD) to separate base characters from accents\n    nfkd_form = unicodedata.normalize('NFKD', text)\n    \n    # Encode to ASCII bytes, ignoring non-ASCII characters, then decode back to string\n    ascii_text = nfkd_form.encode('ascii', 'ignore').decode('ascii')\n    \n    # Convert to lowercase\n    lower_text = ascii_text.lower()\n    \n    # Replace any run of non-alphanumeric characters with a single hyphen\n    slug = re.sub(r'[^a-z0-9]+', '-', lower_text)\n    \n    # Strip leading and trailing hyphens\n    return slug.strip('-')\n```",
+ "prompt_tokens": 237,
+ "completion_tokens": 277,
+ "latency_s": 1.909
+}

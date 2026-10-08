@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef balanced(text: str) -> bool:\n    stack = []\n    in_quote = None  # None, or the quote character (' or \")\n    escaped = False\n\n    matching = {\n        ')': '(',\n        ']': '[',\n        '}': '{'\n    }\n\n    for char in text:\n        if in_quote is not None:\n            if escaped:\n                escaped = False\n            elif char == '\\\\':\n                escaped = True\n            elif char == in_quote:\n                in_quote = None\n            continue\n        else:\n            if char in ('\\'', '\"'):\n                in_quote = char\n                escaped = False\n                continue\n            elif char == '\\\\':\n                # A backslash outside of quotes could be considered raw syntax,\n                # but typically we just ignore or handle it. To be safe, let's treat it as literal.\n                pass\n\n        if char in ('(', '[', '{'):\n            stack.append(char)\n        elif char in (')', ']', '}'):\n            if not stack or stack[-1] != matching[char]:\n                return False\n            stack.pop()\n\n    if in_quote is not None:\n        return False\n\n    return len(stack) == 0\n```",
+ "prompt_tokens": 187,
+ "completion_tokens": 288,
+ "latency_s": 1.877
+}

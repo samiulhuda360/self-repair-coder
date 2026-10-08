@@ -1,0 +1,6 @@
+{
+ "text": "```python\nfrom datetime import date, timedelta\n\ndef _count_business_days(start_date: date, end_date: date) -> int:\n    \"\"\"Count weekdays (Monday-Friday) from start_date (inclusive) to end_date (exclusive).\"\"\"\n    if start_date >= end_date:\n        return 0\n    \n    total_days = (end_date - start_date).days\n    start_weekday = start_date.weekday() # Monday is 0, Sunday is 6\n    \n    full_weeks, extra_days = divmod(total_days, 7)\n    business_days_count = full_weeks * 5\n    \n    for i in range(extra_days):\n        current_weekday = (start_weekday + i) % 7\n        if current_weekday < 5:  # Monday to Friday\n            business_days_count += 1\n            \n    return business_days_count\n\ndef business_days(start: str, end: str) -> int:\n    start_date = date.fromisoformat(start)\n    end_date = date.fromisoformat(end)\n    \n    if start_date <= end_date:\n        return _count_business_days(start_date, end_date)\n    else:\n        return -_count_business_days(end_date, start_date)\n```",
+ "prompt_tokens": 228,
+ "completion_tokens": 315,
+ "latency_s": 1.873
+}

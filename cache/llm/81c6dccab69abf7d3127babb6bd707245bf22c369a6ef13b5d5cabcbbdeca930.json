@@ -1,0 +1,6 @@
+{
+ "text": "```python\nfrom collections import OrderedDict\n\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        if capacity < 0:\n            raise ValueError(\"Capacity cannot be negative.\")\n        self.capacity = capacity\n        self.cache: OrderedDict[object, object] = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        # Move to end to show it was recently used\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if self.capacity == 0:\n            return\n\n        if key in self.cache:\n            # Update value and move to end\n            self.cache.move_to_end(key)\n            self.cache[key] = value\n        else:\n            if len(self.cache) >= self.capacity:\n                # Evict the least recently used item (first item)\n                self.cache.popitem(last=False)\n            self.cache[key] = value\n\n    def __len__(self) -> int:\n        return len(self.cache)\n```",
+ "prompt_tokens": 272,
+ "completion_tokens": 267,
+ "latency_s": 1.74
+}

@@ -1,0 +1,6 @@
+{
+ "text": "```python\nfrom __future__ import annotations\nimport re\n\ndef natural_sort(items: list[str]) -> list[str]:\n    \"\"\"Sorts a list of strings in natural order.\n    \n    Splits each string into runs of digits and non-digits. Digit runs compare\n    numerically, non-digit runs compare case-insensitively. Digit runs sort\n    before non-digit runs. Ties are broken using standard string comparison.\n    \"\"\"\n    def _natural_key(s: str) -> list:\n        # Split string into runs of digits and non-digits\n        parts = re.findall(r'\\d+|\\D+', s)\n        key = []\n        for part in parts:\n            if part.isdigit():\n                # (0 for digit run type, numeric value, original string representation)\n                key.append((0, int(part), part))\n            else:\n                # (1 for text run type, lowercase string, original string representation)\n                key.append((1, part.lower(), part))\n        # Append the original string as a final tie-breaker for deterministic sorting\n        key.append((2, s))\n        return key\n\n    return sorted(items, key=_natural_key)\n```",
+ "prompt_tokens": 625,
+ "completion_tokens": 274,
+ "latency_s": 1.635
+}

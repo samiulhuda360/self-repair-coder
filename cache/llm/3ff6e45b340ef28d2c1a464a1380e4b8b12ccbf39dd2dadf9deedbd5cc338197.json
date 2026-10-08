@@ -1,0 +1,6 @@
+{
+ "text": "```python\nfrom __future__ import annotations\n\n\ndef moving_average(values: list[float], window: int) -> list[float]:\n    \"\"\"Calculate the simple moving average of each full window.\n\n    Returns a list of length len(values) - window + 1, with each value\n    rounded to 2 decimal places. Returns [] when the window is longer\n    than the list. Raises ValueError when window < 1.\n    \"\"\"\n    if window < 1:\n        raise ValueError(\"window must be at least 1\")\n\n    if window > len(values):\n        return []\n\n    result: list[float] = []\n    \n    # Compute the initial window sum\n    current_sum = sum(values[:window])\n    result.append(round(current_sum / window, 2))\n\n    # Slide the window across the remaining values\n    for i in range(window, len(values)):\n        current_sum = current_sum - values[i - window] + values[i]\n        result.append(round(current_sum / window, 2))\n\n    return result\n```",
+ "prompt_tokens": 208,
+ "completion_tokens": 246,
+ "latency_s": 1.31
+}

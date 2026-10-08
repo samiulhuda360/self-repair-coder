@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef binary_search(items, target):\n    lo, hi = 0, len(items) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if items[mid] == target:\n            return mid\n        elif items[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1\n```",
+ "prompt_tokens": 434,
+ "completion_tokens": 98,
+ "latency_s": 1.723
+}

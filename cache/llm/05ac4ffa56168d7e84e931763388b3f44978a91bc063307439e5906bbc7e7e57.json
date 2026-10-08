@@ -1,0 +1,6 @@
+{
+ "text": "```python\ndef days_in_month(year, month):\n    if not (1 <= month <= 12):\n        raise ValueError(\"Month must be between 1 and 12\")\n    if month == 2:\n        is_leap = (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)\n        return 29 if is_leap else 28\n    if month in (4, 6, 9, 11):\n        return 30\n    return 31\n```",
+ "prompt_tokens": 344,
+ "completion_tokens": 134,
+ "latency_s": 1.157
+}

@@ -1,0 +1,6 @@
+{
+ "text": "```python\nimport re\nfrom collections import Counter\n\n\ndef top_k_words(text: str, k: int) -> list[tuple[str, int]]:\n    \"\"\"Returns the k most common words with their counts.\n\n    Words are runs of the letters a-z and apostrophes, matched case-insensitively\n    and reported in lower case. Sort by count, highest first, and break ties\n    alphabetically.\n    \"\"\"\n    if k <= 0:\n        return []\n\n    # Find all words consisting of letters a-z and apostrophes\n    pattern = re.compile(r\"[a-z']+\", re.IGNORECASE)\n    words = [word.lower() for word in pattern.findall(text)]\n\n    if not words:\n        return []\n\n    # Count frequencies\n    counts = Counter(words)\n\n    # Sort items: primary key is count descending (-count), secondary key is word ascending (word)\n    sorted_items = sorted(counts.items(), key=lambda item: (-item[1], item[0]))\n\n    return sorted_items[:k]\n```",
+ "prompt_tokens": 250,
+ "completion_tokens": 242,
+ "latency_s": 1.661
+}
