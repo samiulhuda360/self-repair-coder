@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "self-repair-coder"
+version = "1.0.0"
+description = "An AI coding assistant that turns a plain-English task into tested Python, runs it in a sandbox and repairs its own failures."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Samiul Huda" }]
+dependencies = [
+  "openai>=1.50",
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "ruff==0.16.10", "mypy>=1.10"]
+
+[project.scripts]
+repaircoder = "repaircoder.__main__:main"
+
+[tool.setuptools]
+packages = ["repaircoder"]
+
+[tool.setuptools.package-data]
+repaircoder = ["static/*.html"]
+
+[tool.ruff]
+line-length = 150
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["repaircoder"]
+
+[[tool.mypy.overrides]]
+module = ["uvicorn"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
