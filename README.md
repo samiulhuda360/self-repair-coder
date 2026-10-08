@@ -8,8 +8,8 @@ the tests pass.
 
 ## What it does
 
-You describe a function in plain English and give a few `assert` lines that say what "correct" means. The
-assistant:
+You describe a function in plain English and give a few checks that say what "correct" means (in Python these
+are one-line `assert` statements, such as `assert add(2, 2) == 4`). The assistant:
 
 1. asks a language model for a first draft;
 2. runs that draft in a separate, time-limited Python process against your tests;
@@ -53,12 +53,15 @@ string raises `ValueError`) and presses **Generate, test and repair**.
 
 ## How you would use it
 
-- **Web UI:** run `python -m repaircoder serve`, open http://127.0.0.1:8000, describe the task, paste tests and
-  press run. Choose **Fix my code** to repair existing code instead.
-- **Command line:** `python -m repaircoder solve "..." --entry name --test "assert ..."` writes and tests code,
-  and `--out file.py` saves it. `python -m repaircoder fix broken.py --entry name --prompt "..." --tests tests.txt --write`
-  repairs a file in place.
-- **Benchmark:** `python -m repaircoder bench` measures the assistant on the task set and writes `eval/results.md`.
+1. Start the app (one command, see [Setup](#setup)) and open http://127.0.0.1:8000 in your browser.
+2. Describe what the function should do, in a sentence or two, and give it a name.
+3. Paste a few checks, one per line, or leave the box empty and the assistant writes its own.
+4. Press **Generate, test and repair** and watch each attempt appear: which checks passed, what failed and why,
+   and the corrected version.
+5. Copy the final code from the page. The run is kept in the history list, so you can show how it was tested.
+
+Have code that already exists but doesn't work? Choose **Fix my code**, paste it in, and it is tested and repaired
+the same way. Developers can do all of this from the command line too (see [Usage](#usage)).
 
 ![Fix mode: the broken binary search loops forever and is killed by the time limit; the fix passes all tests](docs/screenshots/fix-mode.png)
 
