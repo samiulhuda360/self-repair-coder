@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-Repair Coder</title>
+<style>
+  :root {
+    --bg: #f4f6f5; --panel: #ffffff; --ink: #14201e; --muted: #5d6b68; --line: #dbe2e0;
+    --accent: #2f6f68; --accent-ink: #ffffff; --accent-soft: #e6f2ef;
+    --pass: #23784a; --pass-soft: #e5f4ea; --fail: #b4432f; --fail-soft: #fbeae6; --warn: #9a6a12;
+    --code-bg: #0f1a19; --code-ink: #dce8e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+  header .tag { color: var(--muted); font-size: 13px; }
+  .chip { margin-left: auto; font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid #c7e0da; }
+  main { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .5px; }
+  textarea, input, select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; font: inherit; background: #fbfcfc; color: var(--ink); }
+  textarea.code, pre { font: 13px/1.5 "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace; }
+  textarea:focus, input:focus, select:focus { outline: 2px solid #9fcdc4; border-color: var(--accent); }
+  .modes { display: flex; gap: 6px; background: var(--bg); padding: 4px; border-radius: 8px; }
+  .modes button { flex: 1; border: 0; background: transparent; padding: 7px; border-radius: 6px; font: inherit; cursor: pointer; color: var(--muted); }
+  .modes button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .run { margin-top: 16px; width: 100%; border: 0; border-radius: 8px; padding: 11px; background: var(--accent); color: var(--accent-ink); font: 600 15px/1 inherit; font-family: inherit; cursor: pointer; }
+  .run:disabled { opacity: .6; cursor: wait; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .banner { padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; font-weight: 600; display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .banner.ok { background: var(--pass-soft); color: var(--pass); }
+  .banner.bad { background: var(--fail-soft); color: var(--fail); }
+  .banner.info { background: var(--accent-soft); color: var(--accent); }
+  .banner .stats { font-weight: 400; color: var(--ink); font-size: 13px; }
+  .attempt { border: 1px solid var(--line); border-radius: 9px; margin-bottom: 12px; overflow: hidden; background: var(--panel); }
+  .attempt .head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .badge { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .badge.pass { background: var(--pass-soft); color: var(--pass); }
+  .badge.fail { background: var(--fail-soft); color: var(--fail); }
+  .badge.kind { background: var(--bg); color: var(--muted); font-weight: 600; }
+  .meta { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .tests { list-style: none; margin: 0; padding: 8px 14px; }
+  .tests li { font: 12.5px/1.45 "Cascadia Mono", Consolas, monospace; padding: 3px 0; display: flex; gap: 8px; }
+  .tests li .mark { width: 14px; flex: none; font-weight: 700; }
+  .tests li.p .mark { color: var(--pass); }
+  .tests li.f .mark { color: var(--fail); }
+  .tests li .err { display: block; color: var(--fail); }
+  details summary { cursor: pointer; padding: 8px 14px; color: var(--accent); font-size: 13px; font-weight: 600; }
+  pre { margin: 0; background: var(--code-bg); color: var(--code-ink); padding: 12px 14px; overflow-x: auto; }
+  .empty { color: var(--muted); text-align: center; padding: 50px 20px; }
+  .history { margin-top: 20px; }
+  .history h2, .results h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .hist { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .hist button { border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink); text-align: left; padding: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist .del { flex: none; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #b9d8d2; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Self-Repair Coder</h1>
+  <span class="tag">Plain English in, tested Python out</span>
+  <span class="chip" id="status">connecting...</span>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <div class="modes">
+        <button id="m-generate" class="on" type="button">Write new code</button>
+        <button id="m-fix" type="button">Fix my code</button>
+      </div>
+      <label for="example">Load an example</label>
+      <select id="example"><option value="">Choose a benchmark task...</option></select>
+      <label for="prompt">What should the code do?</label>
+      <textarea id="prompt" rows="6" placeholder="Write slugify(text) that turns a title into a URL slug..."></textarea>
+      <div id="starter-wrap" hidden>
+        <label for="starter">Code to fix</label>
+        <textarea id="starter" class="code" rows="8" spellcheck="false"></textarea>
+      </div>
+      <div class="row">
+        <div><label for="entry">Function or class name</label><input id="entry" placeholder="slugify" spellcheck="false"></div>
+        <div style="flex:.6"><label for="repairs">Repair rounds</label>
+          <select id="repairs"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>5</option></select></div>
+      </div>
+      <label for="tests">Tests (one assert per line)</label>
+      <textarea id="tests" class="code" rows="6" spellcheck="false" placeholder='assert slugify("Hello World") == "hello-world"'></textarea>
+      <div class="hint">Leave empty and the assistant writes its own tests first. <code>raises(Error, fn, *args)</code> checks for exceptions.</div>
+      <button class="run" id="run" type="button">Generate, test and repair</button>
+    </div>
+    <div class="card history">
+      <h2>History</h2>
+      <div id="history"><div class="hint">No runs yet.</div></div>
+    </div>
+  </section>
+  <section class="results">
+    <div id="banner"></div>
+    <div id="attempts"><div class="card empty">Describe a task, add a few tests, and press run.<br>Each attempt is executed in a sandboxed Python process and shown here.</div></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let mode = 'generate';
+let examples = [];
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function setMode(m) {
+  mode = m;
+  $('m-generate').classList.toggle('on', m === 'generate');
+  $('m-fix').classList.toggle('on', m === 'fix');
+  $('starter-wrap').hidden = m !== 'fix';
+  $('run').textContent = m === 'fix' ? 'Fix, test and repair' : 'Generate, test and repair';
+}
+$('m-generate').onclick = () => setMode('generate');
+$('m-fix').onclick = () => setMode('fix');
+
+$('example').onchange = () => {
+  const ex = examples.find((e) => e.id === $('example').value);
+  if (!ex) return;
+  setMode(ex.mode);
+  $('prompt').value = ex.prompt;
+  $('entry').value = ex.entry_point;
+  $('tests').value = ex.tests;
+  $('starter').value = ex.starter_code;
+};
+
+function testList(result) {
+  if (result.load_error) return `<ul class="tests"><li class="f"><span class="mark">x</span><span>module failed to load<span class="err">${esc(result.load_error)}</span></span></li></ul>`;
+  return '<ul class="tests">' + result.outcomes.map((o) =>
+    `<li class="${o.passed ? 'p' : 'f'}"><span class="mark">${o.passed ? '&#10003;' : 'x'}</span><span>${esc(o.test)}${o.passed ? '' : `<span class="err">${esc(o.error)}</span>`}</span></li>`).join('') + '</ul>';
+}
+
+function attemptCard(a, open) {
+  const ok = a.result.all_passed;
+  const label = { generate: 'first draft', fix: 'first fix', repair: 'repair' }[a.kind] || a.kind;
+  return `<div class="attempt">
+    <div class="head"><strong>Attempt ${a.number}</strong><span class="badge kind">${label}</span>
+      <span class="badge ${ok ? 'pass' : 'fail'}">${a.result.passed}/${a.result.total} tests</span>
+      <span class="meta">${a.prompt_tokens + a.completion_tokens} tokens &middot; ${a.latency_s.toFixed(1)} s model${a.cached ? ' &middot; recorded' : ''} &middot; ${a.result.duration_s.toFixed(2)} s sandbox</span></div>
+    ${testList(a.result)}
+    <details ${open ? 'open' : ''}><summary>Code</summary><pre>${esc(a.code)}</pre></details>
+  </div>`;
+}
+
+function baselineCard(result) {
+  return `<div class="attempt"><div class="head"><strong>Your code</strong><span class="badge kind">before</span>
+    <span class="badge ${result.all_passed ? 'pass' : 'fail'}">${result.passed}/${result.total} tests</span></div>${testList(result)}</div>`;
+}
+
+function banner(kind, html) { $('banner').innerHTML = `<div class="banner ${kind}">${html}</div>`; }
+
+function finish(d) {
+  const stats = `<span class="stats">${d.attempts} attempt${d.attempts === 1 ? '' : 's'} &middot; ${d.prompt_tokens + d.completion_tokens} tokens &middot; ${d.model_latency_s.toFixed(1)} s in the model &middot; ${d.wall_time_s.toFixed(1)} s total</span>`;
+  if (d.solved) banner('ok', `${d.attempts === 1 ? 'Passed on the first try' : `Passed after ${d.attempts - 1} repair${d.attempts > 2 ? 's' : ''}`} ${stats}`);
+  else banner('bad', `Not solved within the repair budget ${stats}`);
+}
+
+async function run() {
+  const body = { prompt: $('prompt').value, entry_point: $('entry').value.trim(), tests: $('tests').value, mode, starter_code: mode === 'fix' ? $('starter').value : null, max_repairs: Number($('repairs').value) };
+  $('run').disabled = true;
+  $('attempts').innerHTML = '';
+  banner('info', '<span class="spinner"></span>Working: writing code and running it in the sandbox...');
+  const cards = [];
+  try {
+    const res = await fetch('/api/solve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { const err = await res.json(); throw new Error(typeof err.detail === 'string' ? err.detail : 'Please fill in the task and a valid function name.'); }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const ev = JSON.parse(buffer.slice(0, nl)); buffer = buffer.slice(nl + 1);
+        if (ev.event === 'tests') { $('tests').value = ev.tests.join('\n'); banner('info', '<span class="spinner"></span>Wrote ' + ev.tests.length + ' tests from the description; now writing the code...'); }
+        if (ev.event === 'baseline') { cards.push(baselineCard(ev.result)); }
+        if (ev.event === 'attempt') {
+          cards.push(attemptCard(ev, ev.result.all_passed));
+          if (!ev.result.all_passed) banner('info', `<span class="spinner"></span>Attempt ${ev.number} failed ${ev.result.total - ev.result.passed} test(s); sending the failures back for a repair...`);
+        }
+        if (ev.event === 'done') { finish(ev); loadHistory(); }
+        if (ev.event === 'error') banner('bad', esc(ev.message));
+        $('attempts').innerHTML = cards.join('');
+      }
+    }
+  } catch (e) { banner('bad', esc(e.message)); }
+  $('run').disabled = false;
+}
+$('run').onclick = run;
+
+async function loadHistory() {
+  const rows = await (await fetch('/api/history')).json();
+  if (!rows.length) { $('history').innerHTML = '<div class="hint">No runs yet.</div>'; return; }
+  $('history').innerHTML = rows.slice(0, 12).map((r) => `<div class="hist">
+    <span class="dot" style="background:${r.solved ? 'var(--pass)' : 'var(--fail)'}"></span>
+    <button data-open="${r.id}" title="${esc(r.prompt)}"><code>${esc(r.entry_point)}</code> &middot; ${r.attempts} attempt${r.attempts === 1 ? '' : 's'} &middot; ${esc(r.created_at.slice(0, 16).replace('T', ' '))}</button>
+    <button class="del" data-del="${r.id}" title="Delete">delete</button></div>`).join('');
+}
+$('history').onclick = async (e) => {
+  const open = e.target.closest('[data-open]');
+  const del = e.target.closest('[data-del]');
+  if (del) { await fetch('/api/history/' + del.dataset.del, { method: 'DELETE' }); loadHistory(); return; }
+  if (!open) return;
+  const r = await (await fetch('/api/history/' + open.dataset.open)).json();
+  setMode(r.mode); $('prompt').value = r.prompt; $('entry').value = r.entry_point; $('tests').value = r.tests.join('\n');
+  const cards = (r.baseline ? [baselineCard(r.baseline)] : []).concat(r.attempts.map((a, i) => attemptCard(a, i === r.attempts.length - 1)));
+  $('attempts').innerHTML = cards.join('');
+  finish({ ...r, attempts: r.attempts.length });
+};
+
+(async () => {
+  const s = await (await fetch('/api/status')).json();
+  $('status').textContent = s.mode === 'live' ? `live model: ${s.model}` : `replay mode: recorded answers for ${s.model}`;
+  examples = await (await fetch('/api/examples')).json();
+  $('example').innerHTML += examples.map((e) => `<option value="${e.id}">${e.mode === 'fix' ? 'Fix: ' : ''}${e.id}</option>`).join('');
+  loadHistory();
+})();
+</script>
+</body>
+</html>
